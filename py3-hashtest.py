@@ -43,10 +43,11 @@ def calcHash( passPhrase):
 if __name__=='__main__':
 	li=[]
 	charlist = """a2Pd"""
-	chunk = 300 # multiprocess chunk size
+	chunk = 350 # multiprocess chunk size
 
 	try:
-		print('\n\tPARALLEL: Running... \n')
+		print('\n\tPARALLEL: Running...')
+		print("\t  chunk size: {}\n".format(chunk))
 		startTime = dt.datetime.now()
 
 		#permutation
@@ -59,8 +60,9 @@ if __name__=='__main__':
 			result = pool.map( calcHash, sampli, chunk)
 
 			endTime = dt.datetime.now()
-
-		print("\n Plaintext permutations:", format(len(li), ',d') )
+		
+		
+		print(" Plaintext permutations:", format(len(li), ',d') )
 		print(" Hash calculated:", format(len(result), ',d'),"\n" )
 		# length output is 64
 		# 32 bytes; 8 word
