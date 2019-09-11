@@ -3,8 +3,8 @@
 # This script will generate permutations of possible plaintext passphrases
 # for specific passphrase length
 #
-# - attemps to use all cores - but has significant overhead
-# - Write out in small chunks to save RAM space
+#	 - attemps to use all cores
+#	- pool.map - wait for everything to finish
 #
 #-----------------------------------------------------------------------------------------------------------------------------
 import os
@@ -14,16 +14,21 @@ import multiprocessing as mp
 from time import sleep
 import queue
 import datetime as dt
+import functools
+import string
 
 #-----------------------------------------------------------------------------------------------------------------------------
+cores = mp.cpu_count()
+
 #generate plaintext - small subset since too much time to calculate hash
 charlen = 7
-charlist = """ABCDEFGH"""
-combitn = len(charlist)**charlen       #formula is length ^characters
+charlist = string.ascii_uppercase[:9]
+prefix_char = string.ascii_lowercase		# pass a prefix to each process
+combitn = (len(charlist)**charlen)*len(prefix_char)       #formula is length ^characters
 
 #-----------------------------------------------------------------------------------------------------------------------------
 pathfile = os.getcwd()
-namefile = 'RUNNING ' + str(charlen+1) + '-char-plaintext.txt'
+namefile = 'RUNNING-' + 'mp1-' + str(charlen+1) + '-char-plaintext.txt'
 outfile = os.path.join(pathfile,namefile)
 
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -31,80 +36,67 @@ outfile = os.path.join(pathfile,namefile)
 #  !#$%&()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
 #-----------------------------------------------------------------------------------------------------------------------------
 
-# function to join the combinations
-def gen_text(comb):
-	ptext = (''.join( ("A",)+comb) )
-	q.put(ptext)
-#	print(ptext, os.getpid())
-	return 0
-
 # generator function
-def comb_gen( charlist, charlen):
-	return itertools.product(charlist,repeat=charlen)
+def comb_gen( charlen, charlist):
+		return itertools.product(charlist,repeat=charlen)
+
+
+# function to join the combinations
+def gen_text( prechar, charlen, charlist):
+	li = []
+	for i in comb_gen(charlen, charlist):
+		li.append(''.join( (prechar,)+ i))
+	return li
+#	print(ptext, os.getpid())
+
 
 if __name__=='__main__':
-	
+
 	sys.stdout.write('\n\033[33m PARALLEL: Running... \n\n\033[0m')
 	sys.stdout.flush()
 
 	try:
-		print("\t Generating ", format(combitn,',d'), "combinations...\n")
+		print("\t Generating {:,d} combinations...\n".format(combitn) )
+		print("\t expecting to take {:.3f} seconds\n".format(combitn/(1.7*10**6) ) )
 		startTime = dt.datetime.now()
-		q=mp.Queue()		
 		with open(outfile,'w') as f:
+			try:
+				with mp.Pool(cores) as pool:
+					result = pool.map( functools.partial(gen_text, charlist=charlist, charlen=charlen), prefix_char)
+				pool.join()
+				pool.close()
+				outcome = list( itertools.chain.from_iterable(result) )
+				# print(result, "\n")
+				f.write( '\n'.join(outcome))
+				f.write('\n')
 
-			#permutation 
-#			perm = itertools.product(charlist,repeat=8)
-			with mp.Pool(mp.cpu_count()-1) as pool:
-#				result = pool.map_async( gen_text, comb_gen(charlist, charlen), 6*10**5)
-#				result = pool.imap( gen_text, itertools.product(charlist,repeat=charlen), 6*10**5)
-				k=0
-				que=[]
-				while (1):
-					try:
-						que.append(q.get(timeout=1.5))
-						
-						if (k%100000==0 and k!=0):
-							f.write('\n'.join(que)) 
-							f.write('\n')
-							print(k, len(que), "time:", (dt.datetime.now()-startTime).total_seconds() )
-							que=[]
+			except queue.Empty:
+				f.write('\n'.join(result))
+				f.write('\n')
+				# print("\n\n\t Exiting while loop")
+				# break
 
-						k+=1
-						
-					except queue.Empty:
-						f.write('\n'.join(que)) 
-						f.write('\n')
-						print("\n\n\t Exiting while loop")
-						break
-				
-		q.close()
-		pool.join()
-		pool.close()
-		f.close()
-		os.rename(namefile,namefile[8:])			
-			
-		print("\n\t Generated",format(k, ',d'), "phrases")
-	
+		# q.close()
+		# pool.join()
+		# pool.close()
+		# f.close()
+		os.rename(namefile,namefile[8:])
+
+		# print("\n\t Generated",format(k, ',d'), "phrases")
+
 		timeTaken = (dt.datetime.now() - startTime)
 		minDuration = timeTaken/dt.timedelta(seconds=60)
-		print("\n\t Total time taken", 
-				" \n\t\t minutes:", format(minDuration,  '.3f'), 
+		print("\n\t Total time taken",
+				" \n\t\t minutes:", format(minDuration,  '.3f'),
 				" \n\t\t seconds:", format( timeTaken.total_seconds(), '.3f' ),
-				"\n\t\t rate   :", format(  k/(timeTaken.total_seconds()*10**6), '.3f' ), "million phrases per second")
+				"\n\t\t rate   :", format(  len(outcome)/(timeTaken.total_seconds()*10**6), '.3f' ), "million phrases per second")
 
 		sys.stdout.write('\n\n\033[33m ### DONE ### \n\n\n\033[0m')
 
 	except KeyboardInterrupt:
-		q.close()
 		pool.join()
 		pool.close()
 		sys.stdout.write('\033[33m') #terminal colour
 		sys.stdout.write('\n User Interrupt \n')
-		print("Killed at", k, que[-1])
+		# print("Killed at", k, que[-1])
 		sys.stdout.write('\033[0m')	#reset color
-		
-		
-		
-		
-		
