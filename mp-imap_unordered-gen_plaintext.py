@@ -22,8 +22,8 @@ cores=mp.cpu_count()-1
 
 #generate plaintext - small subset since too much time to calculate hash
 charlen = 7
-charlist = string.ascii_uppercase[:7]   #"""ABCDEF"""
-prefix_char = string.ascii_lowercase	[:24]	# here send different first letter to each process
+charlist = string.ascii_uppercase[:6]   #"""ABCDEF"""
+prefix_char = string.ascii_lowercase	[:cores]	# here send different first letter to each process
 combitn = (len(charlist)**charlen)*len(prefix_char)       #formula is length ^characters
 
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -69,7 +69,7 @@ if __name__=='__main__':
 			try:
 				with mp.Pool(cores) as pool:
 					
-					result = pool.imap_unordered( functools.partial(gen_text, charlist=charlist, charlen=charlen), prefix_char, 3 )
+					result = pool.imap_unordered( functools.partial(gen_text, charlist=charlist, charlen=charlen), prefix_char, 2 )
 					k=0
 					que=[]
 					procfin = 0 
@@ -81,7 +81,7 @@ if __name__=='__main__':
 								procfin += 1
 								que = []
 								if procfin > procfin_cache:
-									print("procfin: {}    procfin_cache: {}    k: {}  ".format( procfin, procfin_cache, k ))
+									#print("procfin: {}    procfin_cache: {}    k: {}  ".format( procfin, procfin_cache, k ))
 									procfin_cache=procfin
 								if procfin >= len(prefix_char):
 									f.close()
@@ -111,9 +111,9 @@ if __name__=='__main__':
 		timeTaken = (dt.datetime.now() - startTime)
 		minDuration = timeTaken/dt.timedelta(seconds=60)
 		print("\n\t Total time taken",
-				" \n\t\t minutes:", format(minDuration,  '.3f'),
-				" \n\t\t seconds:", format( timeTaken.total_seconds(), '.3f' ),
-				"\n\t\t rate   :", format(  k/(timeTaken.total_seconds()*10**6), '.5f' ), "million phrases per second")
+				" \n\t\t minutes: {:.3f}".format(minDuration ),
+				" \n\t\t seconds: {:.3f}".format( timeTaken.total_seconds() ),
+				"\n\t\t rate   : {:.5f} million phrases per second".format(  k/(timeTaken.total_seconds()*10**6) ))
                 
 		sys.stdout.write('\n\n\033[33m ### DONE ### \n\n\n\033[0m')
 
