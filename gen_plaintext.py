@@ -38,7 +38,7 @@ try:
 		for k,i in enumerate(itertools.product(charlist,repeat=charlen)):
 			li.append(''.join( ("A",)+i) )
 		
-			if (k%500==0):
+			if (k%100000==0):
 				f.write('\n'.join(li) )
 				f.write('\n')	
 				li=[]
