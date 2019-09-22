@@ -23,7 +23,7 @@ cores=mp.cpu_count()-1
 #generate plaintext - small subset since too much time to calculate hash
 charlen = 7
 charlist = string.ascii_uppercase[:7]   #"""ABCDEF"""
-prefix_char = string.ascii_lowercase	# here send different first letter to each process
+prefix_char = string.ascii_lowercase	[:24]	# here send different first letter to each process
 combitn = (len(charlist)**charlen)*len(prefix_char)       #formula is length ^characters
 
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -46,7 +46,7 @@ def gen_text( prechar, charlen,charlist):
 	ls = []
 	for j,i in enumerate( comb_gen(charlen, charlist) ):
 		ls.append( ''.join( ( prechar,)+ i) )
-		if (j%75000==0 and j!=0):
+		if (j%35000==0 and j!=0):
 			q.put(ls)
 			ls = []
 	q.put(ls)	
@@ -62,32 +62,37 @@ if __name__=='__main__':
 	
 	try:
 		print("\t Generating ", format(combitn,',d'), "combinations...\n")
-		print( "\t\t <", charlist, ">")
+		print( "\t\t <", charlist, prefix_char, " cores: {} >".format(cores) )
 		startTime=dt.datetime.now()
 		q=mp.Queue()
 		with open(outfile,'w') as f:
 			try:
 				with mp.Pool(cores) as pool:
 					
-					result = pool.imap_unordered( functools.partial(gen_text, charlist=charlist, charlen=charlen), prefix_char )
+					result = pool.imap_unordered( functools.partial(gen_text, charlist=charlist, charlen=charlen), prefix_char, 3 )
 					k=0
 					que=[]
 					procfin = 0 
+					procfin_cache=0
 					while (1):
 						try:
-							que = q.get(timeout=0.0001)
+							que = q.get(timeout=0.05)
 							if que == "end":
 								procfin += 1
 								que = []
+								if procfin > procfin_cache:
+									print("procfin: {}    procfin_cache: {}    k: {}  ".format( procfin, procfin_cache, k ))
+									procfin_cache=procfin
+								if procfin >= len(prefix_char):
+									f.close()
+									print("\n\n\t [+] All processes completed.    procfin: {:d}".format(procfin) )
+									break
 								continue
-							k += len(que)							
-							f.write( '\n'.join( que ))
-							f.write("\n")
-	
-							if procfin>=(len(prefix_char)-1):
-								f.close()
-								print("\n\n\t [+] All processes completed")
-								break
+							else:
+								k += len(que)							
+								f.write( '\n'.join( que ))
+								f.write("\n")
+							
 						except Exception as e:
 							pass
 
@@ -96,7 +101,7 @@ if __name__=='__main__':
 				pool.close()
 				f.close()
 				os.rename(namefile,namefile[8:])
-				print("\n\t Generated {:,d} phrases".format(k) ) 
+				print("\n\t Generated {:,d} phrases \n\t\twhere calculated combination were {:,d}".format(k, combitn) ) 
 				
 			except Exception as e:
 				print("\n### Entered exception ###")
